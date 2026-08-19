@@ -1,0 +1,130 @@
+name: onless-showcase
+
+services:
+  postgres:
+    image: onless-showcase-postgres:16.14-alpine3.24
+    build:
+      context: ..
+      dockerfile: deploy/postgres.Dockerfile
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - data
+    restart: unless-stopped
+
+  dragonfly:
+    image: onless-showcase-dragonfly:1.39.0
+    build:
+      context: ..
+      dockerfile: deploy/dragonfly.Dockerfile
+    command:
+      - "--dir=/data"
+      - "--dbfilename=showcase"
+      - "--proactor_threads=1"
+      - "--maxmemory=256mb"
+    ports:
+      - "127.0.0.1:6382:6379"
+    volumes:
+      - dragonfly-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/backend.Dockerfile
+    environment:
+      ONLESS_API_REDIS_URL: redis://dragonfly:6379/0
+      ONLESS_API_REDIS_CONNECT_TIMEOUT_SECONDS: "1"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      dragonfly:
+        condition: service_healthy
+        restart: true
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2).read()"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - data
+      - edge
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/frontend.Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+        restart: true
+    ports:
+      - "127.0.0.1:8080:8080"
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=16m,uid=101,gid=101,mode=0755
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/healthz | grep -q ok"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - edge
+    restart: unless-stopped
+
+networks:
+  data:
+    name: onless-showcase-data
+    internal: true
+  edge:
+    name: onless-showcase-edge
+
+volumes:
+  postgres-data:
+    name: onless-showcase-postgres
+  dragonfly-data:
+    name: onless-showcase-dragonfly

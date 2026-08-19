@@ -1,0 +1,25 @@
+{
+  "name": "@onless-showcase/mobile-exam-core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline-first exam command ordering and account isolation",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint src test",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --runInBand"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.19.11",
+    "eslint": "^9.33.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.1",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.40.0"
+  }
+}

@@ -1,0 +1,16 @@
+**
+
+!deploy/
+!deploy/backend.Dockerfile
+!deploy/frontend.Dockerfile
+!deploy/nginx.conf
+!deploy/site/
+!deploy/site/**
+
+!services/
+!services/api/
+!services/api/pyproject.toml
+!services/api/poetry.lock
+!services/api/src/
+!services/api/src/onless_api/
+!services/api/src/onless_api/**
