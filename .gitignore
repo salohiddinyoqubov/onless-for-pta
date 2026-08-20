@@ -147,6 +147,14 @@ lessons
 media
 exports
 screenshots
+!docs/screenshots/
+!docs/screenshots/README.md
+!docs/screenshots/web-student-dashboard.webp
+!docs/screenshots/web-exam-question.webp
+!docs/screenshots/web-exam-result.webp
+!docs/screenshots/mobile-offline-demo.webp
+!docs/screenshots/telegram-lite-dashboard.webp
+!docs/screenshots/desktop-control-room.webp
 migrations
 logs
 *.log
