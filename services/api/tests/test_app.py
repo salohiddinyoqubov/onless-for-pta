@@ -1,125 +1,65 @@
-"""HTTP boundary tests using injected Redis fakes."""
+"""HTTP composition and exposure-boundary tests."""
 
-import time
-from uuid import uuid4
+import httpx
+import pytest
 
-from fastapi.testclient import TestClient
-from redis.exceptions import ConnectionError
-
-from onless_api.app import Settings, create_app
+from onless_api.app import create_app
 
 
-class HealthyRedis:
-    def __init__(self) -> None:
-        self.closed = False
-
-    async def ping(self) -> bool:
-        return True
-
-    async def aclose(self) -> None:
-        self.closed = True
-
-    async def eval(self, script: str, numkeys: int, *keys_and_args: str) -> object:
-        del script, numkeys
-        payload = keys_and_args[1]
-        lease_seconds = int(keys_and_args[3])
-        return [1, lease_seconds, payload]
-
-
-class OfflineRedis(HealthyRedis):
-    async def ping(self) -> bool:
-        raise ConnectionError("not available")
-
-
-def test_liveness_does_not_require_redis() -> None:
-    redis = OfflineRedis()
-
-    with TestClient(create_app(redis_factory=lambda settings: redis)) as client:
-        response = client.get("/health/live")
+@pytest.mark.asyncio
+async def test_liveness_is_stateless() -> None:
+    transport = httpx.ASGITransport(app=create_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://example.test") as client:
+        response = await client.get("/health/live")
 
     assert response.status_code == 200
     assert response.json() == {"status": "alive"}
-    assert redis.closed is True
+    assert len(response.headers["X-Request-ID"]) == 32
 
 
-def test_health_alias_matches_liveness_contract() -> None:
-    with TestClient(create_app(redis_factory=lambda settings: HealthyRedis())) as client:
-        response = client.get("/health")
+@pytest.mark.asyncio
+async def test_health_alias_matches_liveness_contract() -> None:
+    transport = httpx.ASGITransport(app=create_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://example.test") as client:
+        response = await client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "alive"}
 
 
-def test_interactive_documentation_is_available() -> None:
-    with TestClient(create_app(redis_factory=lambda settings: HealthyRedis())) as client:
-        response = client.get("/docs")
-        schema = client.get("/openapi.json")
+@pytest.mark.asyncio
+async def test_readiness_has_no_external_dependency_contract() -> None:
+    transport = httpx.ASGITransport(app=create_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://example.test") as client:
+        response = await client.get("/health/ready")
 
     assert response.status_code == 200
-    assert "Onless Showcase API" in response.text
+    assert response.json() == {"status": "ready"}
+
+
+@pytest.mark.asyncio
+async def test_interactive_documentation_is_disabled_to_avoid_external_assets() -> None:
+    transport = httpx.ASGITransport(app=create_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://example.test") as client:
+        swagger = await client.get("/docs")
+        redoc = await client.get("/redoc")
+        schema = await client.get("/openapi.json")
+
+    assert swagger.status_code == 404
+    assert redoc.status_code == 404
     assert schema.status_code == 200
-    assert schema.json()["info"]["title"] == "Onless Showcase API"
-
-
-def test_readiness_reports_available_redis() -> None:
-    with TestClient(create_app(redis_factory=lambda settings: HealthyRedis())) as client:
-        response = client.get("/health/ready")
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "ready",
-        "dependencies": {"redis": {"status": "available"}},
+    assert schema.json()["info"] == {
+        "title": "Onless Showcase API",
+        "version": "1.0.0",
     }
 
 
-def test_readiness_returns_503_without_leaking_connection_details() -> None:
-    settings = Settings(redis_url="redis://example.invalid:6379/0")
+def test_openapi_exposes_only_health_and_synthetic_demo_routes() -> None:
+    schema = create_app().openapi()
 
-    with TestClient(
-        create_app(settings, redis_factory=lambda configured_settings: OfflineRedis())
-    ) as client:
-        response = client.get("/health/ready")
-
-    assert response.status_code == 503
-    assert response.json() == {
-        "status": "not_ready",
-        "dependencies": {"redis": {"status": "unavailable"}},
+    assert set(schema["paths"]) == {
+        "/demo/learning-roadmap",
+        "/health/live",
+        "/health/ready",
     }
-    assert "example.invalid" not in response.text
-
-
-def test_focus_lease_endpoint_projects_typed_atomic_result() -> None:
-    redis = HealthyRedis()
-    request = {
-        "user_id": str(uuid4()),
-        "session_id": str(uuid4()),
-        "question_id": str(uuid4()),
-    }
-
-    with TestClient(create_app(redis_factory=lambda settings: redis)) as client:
-        response = client.post("/focus-leases/acquire", json=request)
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "acquired",
-        "allowed": True,
-        "acquired": True,
-        "reopened": False,
-        "remaining_seconds": 60,
-        "expires_at": response.json()["expires_at"],
-    }
-    assert abs(response.json()["expires_at"] - (int(time.time()) + 60)) <= 1
-
-
-def test_focus_lease_rejects_extra_input_fields() -> None:
-    request = {
-        "user_id": str(uuid4()),
-        "session_id": str(uuid4()),
-        "question_id": str(uuid4()),
-        "unexpected": "value",
-    }
-
-    with TestClient(create_app(redis_factory=lambda settings: HealthyRedis())) as client:
-        response = client.post("/focus-leases/acquire", json=request)
-
-    assert response.status_code == 422
+    assert all(set(operations) <= {"get"} for operations in schema["paths"].values())

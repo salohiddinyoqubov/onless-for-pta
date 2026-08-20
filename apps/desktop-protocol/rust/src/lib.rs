@@ -1,14 +1,14 @@
-//! Shared wire contracts for Onless desktop servers and clients.
+//! Public-safe exam and session contracts shared by desktop clients.
 
-pub mod connection_code;
-pub mod discovery;
-pub mod heartbeat;
-pub mod messages;
-mod uuid_wire;
+pub mod exam_domain;
+pub mod i18n;
+pub mod mode_config;
 
-pub use connection_code::{ConnectionCode, ConnectionCodeError, generate_connection_code};
-pub use discovery::{DEFAULT_WS_PORT, SERVICE_TYPE, ServerInfo};
-pub use messages::{
-    ClientStatus, ClientToServer, ExamAnswerPayload, ExamQuestionPayload, PowerAction,
-    ServerToClient,
+pub use exam_domain::{
+    DomainError, ExamResult, ExamResultWire, ExamSession, ExamSessionWire, SessionStatus,
 };
+pub use i18n::{
+    Locale, RussianPluralCategory, format_duration, format_exam_summary, format_question_count,
+    mode_label, russian_plural_category, status_label,
+};
+pub use mode_config::{EXAM_LIMITS, ExamLimits, ExamMode, MODE_CONFIGS, ModeConfig, NumericRange};
