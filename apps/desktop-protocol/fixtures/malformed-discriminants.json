@@ -1,6 +1,0 @@
-[
-  { "type": "examStart" },
-  { "type": "UnknownMessage" },
-  { "type": 42 },
-  { "not_type": "Ping" }
-]

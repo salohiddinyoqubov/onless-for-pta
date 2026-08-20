@@ -1,13 +1,11 @@
 [project]
-name = "onless-focus-lease"
+name = "onless-showcase-api"
 version = "0.1.0"
-description = "Atomic Redis focus lease extracted for the Onless PTA showcase"
+description = "Synthetic learning projection and safe observability boundaries for Onless PTA"
 authors = [{ name = "Onless", email = "s.yoqubov@onless.uz" }]
 requires-python = ">=3.12,<4.0"
 dependencies = [
     "fastapi>=0.116,<1.0",
-    "pydantic-settings>=2.10,<3.0",
-    "redis>=5.2,<9.0",
     "uvicorn[standard]>=0.35,<1.0",
 ]
 
@@ -15,7 +13,6 @@ dependencies = [
 packages = [{ include = "onless_api", from = "src" }]
 
 [tool.poetry.group.dev.dependencies]
-fakeredis = { version = ">=2.30,<3.0", extras = ["lua"] }
 httpx = ">=0.28,<1.0"
 mypy = ">=1.15,<2.0"
 pytest = ">=8.3,<10.0"

@@ -1,22 +1,5 @@
-"""Public API for the Onless focus-lease example."""
+"""Public API for the synthetic Onless learning showcase."""
 
-from onless_api.app import Settings, create_app
-from onless_api.focus_lease import (
-    DEFAULT_LEASE_SECONDS,
-    MAX_LEASE_SECONDS,
-    FocusLease,
-    FocusLeaseResult,
-    FocusLeaseStatus,
-    RedisEvalPort,
-)
+from onless_api.app import create_app
 
-__all__ = [
-    "DEFAULT_LEASE_SECONDS",
-    "MAX_LEASE_SECONDS",
-    "FocusLease",
-    "FocusLeaseResult",
-    "FocusLeaseStatus",
-    "RedisEvalPort",
-    "Settings",
-    "create_app",
-]
+__all__ = ["create_app"]
